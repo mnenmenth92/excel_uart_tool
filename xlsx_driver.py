@@ -1,34 +1,76 @@
+import configparser
 from openpyxl import load_workbook
+import os
 
 class ExcelColumnReader:
-    def __init__(self, file_path):
-        """
-        Initialize with the path to the Excel file.
-        """
-        self.file_path = file_path
-        self.workbook = load_workbook(file_path, data_only=True)
+    errors = {
+        -1000: "file does not exist",
+        -1001: "sheet does not exist",
+        -1002: "no parameters found",
+        -1005: "wrong config file"
+    }
 
-    def read_column(self, sheet_name, column="A"):
-        """
-        Read all values from the specified column of the sheet.
-        Returns a list of non-empty cell values.
-        """
-        if sheet_name not in self.workbook.sheetnames:
-            raise ValueError(f"Sheet '{sheet_name}' not found in {self.file_path}")
 
-        sheet = self.workbook[sheet_name]
-        column_values = []
+    def __init__(self, config_file="config.ini"):
+        """
+        Initialize with config file path.
+        Reads Excel file and sheet name from config.
 
-        for row in sheet[column]:
-            if row.value is not None:
-                column_values.append(row.value)
+        Possible errors
+        -1000: file does not exist
+        -1001: sheet does not exist
+        -1002: no parameters found
+        -1005: wrong config file
+        """
+        self.config = configparser.ConfigParser()
+        if not os.path.exists(config_file):
+            self.file_path = None
+            self.sheet_name = None
+            self.error = -1005
+            return
+
+        self.config.read(config_file)
+
+        try:
+            self.file_path = self.config.get("calibration_data", "file")
+            self.sheet_name = self.config.get("calibration_data", "spreadsheet")
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            self.file_path = None
+            self.sheet_name = None
+            self.error = -1001
+            return
+
+        if not os.path.exists(self.file_path):
+            self.error = -1000
+            return
+
+        self.error = 0  # no error
+        self.workbook = load_workbook(self.file_path, data_only=True)
+
+    def read_column(self, column="A"):
+        """
+        Read all values from the specified column of the configured sheet.
+        Returns a list of non-empty cell values, or error codes:
+
+        -1000: file does not exist
+        -1001: sheet does not exist
+        -1002: no parameters found
+        -1005: wrong config file
+        """
+        if hasattr(self, "error") and self.error != 0:
+            return self.error
+
+        if self.sheet_name not in self.workbook.sheetnames:
+            return -1001
+
+        sheet = self.workbook[self.sheet_name]
+        column_values = [row.value for row in sheet[column] if row.value is not None]
+
+        if not column_values:
+            return -1002
 
         return column_values
 
-# Example usage
-if __name__ == "__main__":
-    reader = ExcelColumnReader("CalibrationData.xlsx")
-    raw_list_values = reader.read_column("raw_list", column="A")
+    def get_error_text(self, error_num):
+        return ExcelColumnReader.errors[error_num]
 
-    for val in raw_list_values:
-        print(val)
