@@ -4,10 +4,11 @@ import os
 
 class ExcelColumnReader:
     errors = {
-        -1000: "file does not exist",
-        -1001: "sheet does not exist",
-        -1002: "no parameters found",
-        -1005: "wrong config file"
+        -1000: "Calibration file does not exist",
+        -1001: "Sheet does not exist",
+        -1002: "No parameters found",
+        -1005: "Wrong config file",
+        - 1006: "Wrong config file keys",
     }
 
 
@@ -37,7 +38,7 @@ class ExcelColumnReader:
         except (configparser.NoSectionError, configparser.NoOptionError):
             self.file_path = None
             self.sheet_name = None
-            self.error = -1001
+            self.error = -1006
             return
 
         if not os.path.exists(self.file_path):
